@@ -1,0 +1,27 @@
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.apiName }}
+  title: ${{ values.apiDisplayName }}
+  description: "${{ values.apiDescription | default(values.apiDisplayName) }}"
+  annotations:
+    dev.azure.com/host-org: "dev.azure.com/${{ values.organization }}"
+    dev.azure.com/project-repo: "${{ values.project }}/${{ values.apiName }}"
+    dev.azure.com/project: "${{ values.project }}"
+    dev.azure.com/build-definition: "${{ values.apiName }}-apim-deploy"
+    sonarqube.org/project-key: "${{ values.apiName }}"
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - title: APIM Gateway
+      url: https://${{ values.apimServiceName }}.azure-api.net${{ values.apiPath }}
+      icon: WebAsset
+spec:
+  type: openapi
+  lifecycle: ${{ values.lifecycle }}
+  owner: group:idp-team
+  system: apim-system
+  definition: |
+    openapi: "3.0.0"
+    info:
+      title: "${{ values.apiDisplayName }}"
+      version: "${{ values.apiVersion }}"

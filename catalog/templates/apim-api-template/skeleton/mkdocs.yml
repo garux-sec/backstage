@@ -1,0 +1,12 @@
+site_name: ${{ values.apiDisplayName }}
+site_description: ${{ values.apiDescription }}
+docs_dir: docs
+
+nav:
+  - Overview: index.md
+  - System Info: system-info.md
+  - API Reference: api-reference.md
+
+
+plugins:
+  - techdocs-core

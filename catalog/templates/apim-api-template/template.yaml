@@ -1,0 +1,320 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: apim-api-template
+  title: Publish API Spec to Azure APIM
+  description: >
+    Onboard a new API — creates repo, pipeline, and deploys to Azure APIM automatically.
+  tags:
+    - apim
+    - azure
+    - openapi
+    - api
+spec:
+  owner: group:idp-team
+  type: api
+
+  parameters:
+    # ─── Step 1: ข้อมูล Backend (Master) ──────────────────────────────────────
+    - title: ข้อมูล Backend (Master)
+      required: [systemName, buName, lifecycle]
+      properties:
+        systemName:
+          title: ชื่อระบบ (System Name)
+          type: string
+          description: ชื่อย่อของระบบ ใช้สำหรับระบุตัวตนในระบบ (เช่น payment-system)
+        systemDescription:
+          title: คำอธิบายระบบ
+          type: string
+          ui:widget: textarea
+        buName:
+          title: ชื่อ BU
+          type: string
+          description: Business Unit ที่ดูแลระบบนี้
+        buOwnerName:
+          title: ชื่อ BU Owner
+          type: string
+        buOwnerEmail:
+          title: อีเมล BU Owner
+          type: string
+          format: email
+        buOwnerTel:
+          title: เบอร์โทร BU Owner
+          type: string
+        lifecycle:
+          title: สถานะการใช้งาน
+          type: string
+          enum: [experimental, development, production, deprecated]
+          enumNames:
+            - ทดลอง (Experimental)
+            - กำลังพัฒนา (Development)
+            - ใช้งานจริง (Production)
+            - ยกเลิกแล้ว (Deprecated)
+          default: development
+        isActive:
+          title: เปิดใช้งาน (Active)
+          type: boolean
+          default: true
+        remark:
+          title: หมายเหตุ
+          type: string
+          ui:widget: textarea
+
+    # ─── Step 2: ข้อมูลผู้ติดต่อ ──────────────────────────────────────────────
+    - title: ข้อมูลผู้ติดต่อ (Contact)
+      required: [contactName, contactEmail]
+      properties:
+        contactName:
+          title: ชื่อผู้ติดต่อ
+          type: string
+        contactEmail:
+          title: อีเมลผู้ติดต่อ
+          type: string
+          format: email
+        contactTel:
+          title: เบอร์โทรผู้ติดต่อ
+          type: string
+
+    # ─── Step 3: API Information ───────────────────────────────────────────────
+    - title: ข้อมูล API (API Information)
+      required: [apiName, apiDisplayName, apiVersion, apiPath]
+      properties:
+        apiName:
+          title: API Name (ID)
+          type: string
+          description: Unique ID — ใช้เป็น Repo name และ APIM API ID (lowercase, no spaces)
+          pattern: '^[a-z0-9\-]+$'
+        apiDisplayName:
+          title: Display Name
+          type: string
+          description: Human-readable name shown in Azure APIM portal
+        apiDescription:
+          title: Description
+          type: string
+        apiVersion:
+          title: API Version
+          type: string
+          default: v1
+        apiPath:
+          title: API Base Path
+          type: string
+          description: "URL path prefix in APIM gateway — must be unique (e.g. /hello-api)"
+          default: /
+
+    # ─── Step 4: Azure DevOps Repo ────────────────────────────────────────────
+    - title: Azure DevOps Repository
+      required: [organization, project]
+      properties:
+        organization:
+          title: Azure DevOps Organization
+          type: string
+          description: "ชื่อ Organization ใน Azure DevOps (เช่น Digital-Product-Development)"
+        project:
+          title: Azure DevOps Project
+          type: string
+          description: "Project ที่จะสร้าง repo ใหม่ (เช่น api-specs)"
+        backstageProject:
+          title: Backstage DevOps Project
+          type: string
+          description: "Project ที่เก็บ shared service connections เช่น SonarQube, APIM (เช่น backstage-new)"
+
+    # ─── Step 5: Azure APIM Target ────────────────────────────────────────────
+    - title: Azure APIM Target
+      required: [apimServiceName, apimResourceGroup, apimServiceConnection, agentPool]
+      properties:
+        apimServiceName:
+          title: APIM Instance Name
+          type: string
+          description: "ชื่อ Azure APIM instance (เช่น mitrphol-apim)"
+        apimResourceGroup:
+          title: Resource Group
+          type: string
+          description: "Resource Group ที่อยู่ของ APIM (เช่น rg-mitrphol-apim)"
+        apimServiceConnection:
+          title: Azure Service Connection Name
+          type: string
+          description: "ชื่อ Service Connection ที่ใช้ deploy ไป APIM (เช่น azure-apim-connection)"
+        agentPool:
+          title: Agent Pool Name
+          type: string
+          description: "ชื่อ Agent Pool ที่ใช้รัน pipeline (เช่น MP-AgentPool)"
+
+    # ─── Step 6: Infrastructure & Observability ──────────────────────────────
+    - title: Infrastructure & Observability
+      required: [backendUrl, tfStateResourceGroup, tfStateStorageAccount, backstageBaseUrl]
+      properties:
+        backendUrl:
+          title: Backend Service URL
+          type: string
+          description: "URL ของ backend service จริง (เช่น https://my-api.azurewebsites.net)"
+        tfStateResourceGroup:
+          title: Terraform State — Resource Group
+          type: string
+          description: "Resource Group ที่เก็บ Terraform remote state (Azure Blob Storage)"
+        tfStateStorageAccount:
+          title: Terraform State — Storage Account
+          type: string
+          description: "Storage Account name สำหรับเก็บ terraform.tfstate"
+        backstageBaseUrl:
+          title: Backstage Base URL
+          type: string
+          description: "URL ของ Backstage instance (เช่น http://localhost:3000)"
+        logAnalyticsWorkspaceId:
+          title: Log Analytics Workspace Resource ID (optional)
+          type: string
+          description: "Resource ID ของ Log Analytics workspace — ถ้าว่างจะข้าม monitoring resources ทั้งหมด"
+        tenantId:
+          title: Entra ID Tenant ID (optional)
+          type: string
+          description: "Microsoft Entra ID tenant ID สำหรับ JWT validation เช่น 999d4f3d-085e-4b67-9cab-1fae1da5b0bd — ถ้าว่างจะข้าม named value"
+        appId:
+          title: App Registration Client ID (optional)
+          type: string
+          description: "Client ID ของ App Registration ที่ออก JWT token สำหรับ API นี้ — ถ้าว่างจะข้าม named value"
+
+    # ─── Step 7: OpenAPI Specification ────────────────────────────────────────
+    - title: OpenAPI Specification
+      required: [specContent]
+      properties:
+        specContent:
+          title: OpenAPI Spec (YAML or JSON)
+          type: string
+          ui:widget: textarea
+          ui:options:
+            rows: 20
+
+    # ─── Step 7: APIM Policy ──────────────────────────────────────────────────
+    - title: APIM Policy
+      required: [policyContent]
+      properties:
+        policyContent:
+          title: APIM XML Policy
+          type: string
+          ui:widget: textarea
+          ui:options:
+            rows: 15
+          default: |
+            <policies>
+                <inbound>
+                    <base />
+                    <cors>
+                        <allowed-origins><origin>https://mitrphol.com</origin></allowed-origins>
+                        <allowed-methods><method>GET</method><method>POST</method></allowed-methods>
+                    </cors>
+                    <rate-limit calls="5" renewal-period="60" />
+                </inbound>
+                <backend><base /></backend>
+                <outbound><base /></outbound>
+                <on-error><base /></on-error>
+            </policies>
+
+  steps:
+    - id: ensure-project
+      name: Ensure Azure DevOps Project Exists
+      action: azure:project:ensure-exists
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.project }}
+        description: API Specs repository — managed by MP-Backstage
+
+    - id: template
+      name: Render Skeleton Files
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          apiName: ${{ parameters.apiName }}
+          apiDisplayName: ${{ parameters.apiDisplayName }}
+          apiDescription: ${{ parameters.apiDescription }}
+          apiVersion: ${{ parameters.apiVersion }}
+          apiPath: ${{ parameters.apiPath }}
+          organization: ${{ parameters.organization }}
+          project: ${{ parameters.project }}
+          backstageProject: ${{ parameters.backstageProject }}
+          apimServiceName: ${{ parameters.apimServiceName }}
+          apimResourceGroup: ${{ parameters.apimResourceGroup }}
+          apimServiceConnection: ${{ parameters.apimServiceConnection }}
+          specContent: ${{ parameters.specContent }}
+          policyContent: ${{ parameters.policyContent }}
+          systemName: ${{ parameters.systemName }}
+          systemDescription: ${{ parameters.systemDescription }}
+          buName: ${{ parameters.buName }}
+          buOwnerName: ${{ parameters.buOwnerName }}
+          buOwnerEmail: ${{ parameters.buOwnerEmail }}
+          buOwnerTel: ${{ parameters.buOwnerTel }}
+          contactName: ${{ parameters.contactName }}
+          contactEmail: ${{ parameters.contactEmail }}
+          contactTel: ${{ parameters.contactTel }}
+          lifecycle: ${{ parameters.lifecycle }}
+          isActive: ${{ parameters.isActive }}
+          remark: ${{ parameters.remark }}
+          agentPool: ${{ parameters.agentPool }}
+          backendUrl: ${{ parameters.backendUrl }}
+          tfStateResourceGroup: ${{ parameters.tfStateResourceGroup }}
+          tfStateStorageAccount: ${{ parameters.tfStateStorageAccount }}
+          backstageBaseUrl: ${{ parameters.backstageBaseUrl }}
+          logAnalyticsWorkspaceId: ${{ parameters.logAnalyticsWorkspaceId }}
+          tenantId: ${{ parameters.tenantId }}
+          appId: ${{ parameters.appId }}
+
+    - id: publish
+      name: Publish to Azure DevOps
+      action: publish:azure
+      input:
+        repoUrl: "dev.azure.com?repo=${{ parameters.apiName }}&project=${{ parameters.project }}&organization=${{ parameters.organization }}"
+        description: OpenAPI spec for ${{ parameters.apiDisplayName }}
+        defaultBranch: main
+
+    - id: create-pipeline
+      name: Create Azure Pipeline
+      action: azure:pipeline:ensure
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.project }}
+        pipelineName: ${{ parameters.apiName }}-apim-deploy
+        repository: ${{ parameters.apiName }}
+        pipelineYamlFile: azure-pipelines.yml
+        branch: main
+
+    - id: authorize-pool
+      name: Authorize Agent Pool
+      action: azure:pipeline:authorize-pool
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.project }}
+        poolName: ${{ parameters.agentPool }}
+
+    - id: authorize-apim-connection
+      name: Authorize APIM Service Connection
+      action: azure:service-connection:authorize
+      continueOnError: true
+      input:
+        organization: ${{ parameters.organization }}
+        sourceProject: ${{ parameters.backstageProject }}
+        targetProject: ${{ parameters.project }}
+        connectionName: ${{ parameters.apimServiceConnection }}
+
+    - id: run-pipeline
+      name: Deploy to APIM
+      action: azure:pipeline:queue-run
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.project }}
+        pipelineName: ${{ parameters.apiName }}-apim-deploy
+
+    - id: register
+      name: Register API in Catalog
+      action: catalog:register
+      continueOnError: true
+      input:
+        catalogInfoUrl: https://dev.azure.com/${{ parameters.organization }}/${{ parameters.project }}/_git/${{ parameters.apiName }}?path=/catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: APIM Gateway URL
+        url: https://${{ parameters.apimServiceName }}.azure-api.net${{ parameters.apiPath }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

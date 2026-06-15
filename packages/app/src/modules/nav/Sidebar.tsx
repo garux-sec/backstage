@@ -10,6 +10,8 @@ import { NavContentBlueprint } from '@backstage/plugin-app-react';
 import { SidebarLogo } from './SidebarLogo';
 import MenuIcon from '@material-ui/icons/Menu';
 import SearchIcon from '@material-ui/icons/Search';
+import CloudIcon from '@material-ui/icons/Cloud';
+import MapIcon from '@material-ui/icons/Map';
 import { SidebarSearchModal } from '@backstage/plugin-search';
 import { UserSettingsSignInAvatar } from '@backstage/plugin-user-settings';
 import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
@@ -34,6 +36,8 @@ export const SidebarContent = NavContentBlueprint.make({
           <SidebarGroup label="Menu" icon={<MenuIcon />}>
             {nav.take('page:catalog')}
             {nav.take('page:scaffolder')}
+            <SidebarItem icon={CloudIcon} to="/azure-pull-requests" text="Azure DevOps" />
+            <SidebarItem icon={MapIcon} to="/tech-radar" text="Tech Radar" />
             <SidebarDivider />
             <SidebarScrollWrapper>
               {nav.rest({ sortBy: 'title' })}

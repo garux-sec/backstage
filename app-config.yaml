@@ -37,8 +37,12 @@ backend:
   # This is for local development only, it is not recommended to use this in production
   # The production database configuration is stored in app-config.production.yaml
   database:
-    client: better-sqlite3
-    connection: ':memory:'
+    client: pg
+    connection:
+      host: ${POSTGRES_HOST}
+      port: ${POSTGRES_PORT}
+      user: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
   # see https://backstage.io/docs/ai/mcp-actions#actions-configuration for more details
   actions:
     pluginSources:
@@ -47,24 +51,24 @@ backend:
       - scaffolder
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
 
+azureDevOps:
+  host: dev.azure.com
+  token: ${AZURE_DEVOPS_TOKEN}
+  organization: ${AZURE_DEVOPS_ORG}
+
 integrations:
-  github:
-    - host: github.com
-      # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
-      # about setting up the GitHub integration here: https://backstage.io/docs/integrations/github/locations#configuration
-      token: ${GITHUB_TOKEN}
-    ### Example for how to add your GitHub Enterprise instance using the API:
-    # - host: ghe.example.net
-    #   apiBaseUrl: https://ghe.example.net/api/v3
-    #   token: ${GHE_TOKEN}
+  azure:
+    - host: dev.azure.com
+      credentials:
+        - personalAccessToken: ${AZURE_DEVOPS_TOKEN}
 
 proxy:
-  ### Example for how to add a proxy endpoint for the frontend.
-  ### A typical reason to do this is to handle HTTPS and CORS for internal services.
-  # endpoints:
-  #   '/test':
-  #     target: 'https://example.com'
-  #     changeOrigin: true
+  endpoints:
+    '/azure-devops':
+      target: https://dev.azure.com
+      changeOrigin: true
+      headers:
+        Authorization: Basic ${AZURE_DEVOPS_TOKEN_B64}
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

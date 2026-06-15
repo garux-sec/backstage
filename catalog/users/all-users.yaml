@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: garux2025
+  namespace: default
+spec:
+  profile:
+    displayName: Phisit (Fluck)
+    email: "garux2025_outlook.com#EXT#@garux2025outlook.onmicrosoft.com"
+  memberOf: []

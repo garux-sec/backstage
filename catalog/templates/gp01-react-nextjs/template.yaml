@@ -1,0 +1,333 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gp01-react-nextjs-nodejs
+  title: 'GP#01: React/Next.js + Node.js'
+  description: |
+    TGB-approved Golden Path for customer-facing web apps, internal dashboards, and SaaS products.
+    Stack: React 18.x LTS + Next.js 16.x + TypeScript 5.x + PostgreSQL 16.x
+    Includes: Terraform IaC, Ansible deployment, Azure DevOps CI/CD pipeline.
+    TGB Scores: React (87.75/100), Next.js (82.5/100), TypeScript (91.25/100 MANDATORY)
+  tags:
+    - react
+    - nextjs
+    - typescript
+    - postgresql
+    - golden-path
+    - gp01
+    - recommended
+spec:
+  owner: group:idp-team
+  type: service
+
+  parameters:
+    # ─── Step 1: Project Information ──────────────────────────────────────────
+    - title: Project Information
+      required:
+        - name
+        - owner
+        - description
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Lowercase, hyphenated — ใช้เป็นชื่อ repo และ Azure DevOps Project (e.g., my-web-app)
+          pattern: '^[a-z0-9-]+$'
+          ui:autofocus: true
+        owner:
+          title: Owner Team
+          type: string
+          description: Team responsible for this application
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+        description:
+          title: Description
+          type: string
+          description: Brief description of the application
+          ui:widget: textarea
+          ui:options:
+            rows: 3
+
+    # ─── Step 2: Architecture Options ─────────────────────────────────────────
+    - title: Architecture Options
+      required:
+        - bffPattern
+        - deploymentTarget
+      properties:
+        bffPattern:
+          title: Backend-for-Frontend Pattern
+          type: string
+          description: Choose BFF implementation
+          default: nextjs-api-routes
+          enum:
+            - nextjs-api-routes
+            - nestjs
+          enumNames:
+            - 'Next.js API Routes (lightweight BFF for simple data aggregation)'
+            - 'NestJS 11.x (structured backend for complex business logic)'
+        deploymentTarget:
+          title: Deployment Target
+          type: string
+          description: Deployment option
+          default: azure-app-service
+          enum:
+            - azure-app-service
+            - azure-container-apps
+            - azure-kubernetes
+            - on-premise-vm
+          enumNames:
+            - 'Azure App Service (recommended for most apps)'
+            - 'Azure Container Apps (serverless containers)'
+            - 'Azure Kubernetes Service (AKS - complex orchestration)'
+            - 'On-Premise VM (Docker + Ansible SSH)'
+        includeAuth:
+          title: Include Azure AD Authentication?
+          type: boolean
+          default: true
+          description: OAuth2/OIDC with Azure AD (Entra ID)
+        includeDatabase:
+          title: Include PostgreSQL Database?
+          type: boolean
+          default: true
+          description: PostgreSQL 16.x with connection pooling
+        includeRedis:
+          title: Include Redis Caching?
+          type: boolean
+          default: false
+          description: Azure Cache for Redis
+
+    # ─── Step 3: Azure DevOps ─────────────────────────────────────────────────
+    - title: Azure DevOps Repository
+      required:
+        - organization
+      properties:
+        organization:
+          title: Azure DevOps Organization
+          type: string
+          description: "เช่น garux, Digital-Product-Development"
+        agentPool:
+          title: Agent Pool Name
+          type: string
+          description: "ชื่อ Agent Pool ใน Azure DevOps เช่น Default"
+
+    # ─── Step 4: CI/CD & Infrastructure ──────────────────────────────────────
+    - title: CI/CD & Infrastructure
+      required: []
+      properties:
+        azureRegion:
+          title: Azure Region
+          type: string
+          description: Azure deployment region (ใช้สำหรับ Azure targets เท่านั้น)
+          default: southeastasia
+          enum:
+            - southeastasia
+            - eastasia
+            - australiaeast
+          enumNames:
+            - 'Southeast Asia (Singapore)'
+            - 'East Asia (Hong Kong)'
+            - 'Australia East (Sydney)'
+        enableE2E:
+          title: Enable E2E Testing (Playwright)?
+          type: boolean
+          default: true
+          description: Include Playwright E2E test scaffolding
+        vmHost:
+          title: VM Host / IP (On-Premise only)
+          type: string
+          description: "IP หรือ hostname ของ VM เป้าหมาย เช่น 192.168.1.100"
+          default: ''
+        vmUser:
+          title: VM SSH User (On-Premise only)
+          type: string
+          description: "SSH user บน VM เช่น deploy"
+          default: 'deploy'
+        registryType:
+          title: Docker Registry Type
+          type: string
+          description: "เลือกประเภท Docker Registry"
+          default: private
+          enum:
+            - private
+            - acr
+          enumNames:
+            - 'Private Registry (e.g. registry.company.local:5000)'
+            - 'Azure Container Registry (ACR)'
+        dockerRegistry:
+          title: Docker Registry URL
+          type: string
+          description: "Private Registry URL เช่น registry.company.local:5000 (ถ้าเลือก Private)"
+          default: ''
+        acrName:
+          title: ACR Name
+          type: string
+          description: "ชื่อ Azure Container Registry เช่น myacr (ถ้าเลือก ACR)"
+          default: ''
+
+    # ─── Step 5: Secrets ──────────────────────────────────────────────────────
+    - title: Secrets & Key Vault
+      required:
+        - keyVaultName
+      properties:
+        keyVaultName:
+          title: Azure Key Vault Name
+          type: string
+          description: "ชื่อ Key Vault ที่จะเก็บ secrets เช่น mp-dev-kv"
+          ui:placeholder: 'mp-dev-kv'
+        dbPassword:
+          title: Database Password
+          type: string
+          description: "รหัสผ่าน PostgreSQL (เก็บใน Key Vault อัตโนมัติ)"
+          ui:widget: password
+          default: ''
+        registryPassword:
+          title: Docker Registry Password (On-Premise only)
+          type: string
+          description: "รหัสผ่านสำหรับ Docker Registry (ถ้าต้อง auth)"
+          ui:widget: password
+          default: ''
+
+  steps:
+    - id: ensure-project
+      name: Ensure Azure DevOps Project Exists
+      action: azure:project:ensure-exists
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        description: GP#01 React/Next.js project — managed by MP-Backstage
+
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          description: ${{ parameters.description }}
+          bffPattern: ${{ parameters.bffPattern }}
+          deploymentTarget: ${{ parameters.deploymentTarget }}
+          includeAuth: ${{ parameters.includeAuth }}
+          includeDatabase: ${{ parameters.includeDatabase }}
+          includeRedis: ${{ parameters.includeRedis }}
+          organization: ${{ parameters.organization }}
+          project: ${{ parameters.name }}
+          agentPool: ${{ parameters.agentPool }}
+          azureRegion: ${{ parameters.azureRegion }}
+          enableE2E: ${{ parameters.enableE2E }}
+          vmHost: ${{ parameters.vmHost }}
+          vmUser: ${{ parameters.vmUser }}
+          dockerRegistry: ${{ parameters.dockerRegistry }}
+          registryType: ${{ parameters.registryType }}
+          acrName: ${{ parameters.acrName }}
+
+    - id: publish
+      name: Publish to Azure DevOps
+      action: publish:azure
+      input:
+        repoUrl: "dev.azure.com?repo=${{ parameters.name }}&project=${{ parameters.name }}&organization=${{ parameters.organization }}"
+        description: ${{ parameters.description }}
+        defaultBranch: main
+
+    - id: set-keyvault-secrets
+      name: Set Secrets in Azure Key Vault
+      action: azure:keyvault:set-secret
+      continueOnError: true
+      input:
+        keyVaultName: ${{ parameters.keyVaultName }}
+        secrets:
+          - name: ${{ parameters.name }}-DB-PASSWORD
+            value: ${{ parameters.dbPassword }}
+          - name: ${{ parameters.name }}-REGISTRY-PASSWORD
+            value: ${{ parameters.registryPassword }}
+
+    - id: create-variable-group
+      name: Create Variable Group (Secrets)
+      action: azure:variablegroup:ensure
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        groupName: ${{ parameters.name }}-secrets
+        variables:
+          - name: DEPLOY_SSH_KEY_PATH
+            value: '/Users/admin/.ssh/deploy_key'
+            isSecret: false
+          - name: KEY_VAULT_NAME
+            value: ${{ parameters.keyVaultName }}
+            isSecret: false
+          - name: DB_PASSWORD_SECRET_NAME
+            value: ${{ parameters.name }}-DB-PASSWORD
+            isSecret: false
+          - name: REGISTRY_PASSWORD_SECRET_NAME
+            value: ${{ parameters.name }}-REGISTRY-PASSWORD
+            isSecret: false
+
+    - id: create-pipeline
+      name: Create Azure DevOps Pipeline
+      action: azure:pipeline:ensure
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        pipelineName: ${{ parameters.name }}-ci-cd
+        repository: ${{ parameters.name }}
+        pipelineYamlFile: azure-pipelines.yml
+        branch: main
+
+    - id: authorize-pool
+      name: Authorize Agent Pool
+      action: azure:pipeline:authorize-pool
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        poolName: ${{ parameters.agentPool }}
+
+    - id: trigger-pipeline
+      name: Trigger First Pipeline Run
+      action: azure:pipeline:queue-run
+      continueOnError: true
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        pipelineName: ${{ parameters.name }}-ci-cd
+        branch: main
+
+    - id: register
+      name: Register in Backstage Catalog
+      action: catalog:register
+      continueOnError: true
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.remoteUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+        icon: github
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+    text:
+      - title: Next Steps
+        content: |
+          ## 🎉 Your GP#01 project has been created!
+
+          ### Infrastructure Included
+          - **Terraform**: Azure App Service, PostgreSQL, Redis, App Insights
+          - **Ansible**: Automated deployment & configuration
+          - **Pipeline**: Azure DevOps CI/CD (Build → Test → Security → Deploy Dev → Staging → Prod)
+
+          ### Quick Start
+          ```bash
+          git clone ${{ steps['publish'].output.remoteUrl }}
+          cd ${{ parameters.name }}
+          npm install
+          npm run dev
+          ```
+
+          ### Pipeline Setup
+          1. ไปที่ Azure DevOps → Pipelines → `${{ parameters.name }}-ci-cd`
+          2. เพิ่ม secrets ใน pipeline variables: `AZURE_SUBSCRIPTION_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `DB_PASSWORD`
+          3. Push ไป `main` เพื่อ trigger deploy แรก

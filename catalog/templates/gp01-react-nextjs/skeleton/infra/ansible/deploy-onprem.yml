@@ -1,0 +1,97 @@
+---
+# Ansible playbook — GP#01 React/Next.js On-Premise VM Deployment
+# Deploy via SSH: pull Docker image from registry, run docker-compose up
+
+- name: Deploy Next.js App to On-Premise VM
+  hosts: onprem
+  become: false
+  gather_facts: true
+
+  vars:
+    project_name:    "{{ lookup('env', 'PROJECT_NAME') }}"
+    environment:     "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
+    image_tag:       "{{ lookup('env', 'IMAGE_TAG') | default('latest') }}"
+    docker_registry: "{{ lookup('env', 'DOCKER_REGISTRY') }}"
+    app_dir:         "/opt/{{ project_name }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - project_name | length > 0
+          - docker_registry | length > 0
+          - environment in ['dev', 'staging', 'prod']
+        fail_msg: "PROJECT_NAME, DOCKER_REGISTRY and valid ENVIRONMENT are required"
+
+    - name: Ensure app directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+  tasks:
+    # ─── Copy compose files ────────────────────────────────────────────────────
+    - name: Copy docker-compose.yml to VM
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../docker-compose.yml"
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy .env.production if exists
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../.env.production"
+        dest: "{{ app_dir }}/.env.production"
+        mode: '0600'
+      ignore_errors: true
+
+    # ─── Docker login to private registry ─────────────────────────────────────
+    - name: Docker login to registry
+      community.docker.docker_login:
+        registry_url: "{{ docker_registry }}"
+        username:     "{{ lookup('env', 'REGISTRY_USER') }}"
+        password:     "{{ lookup('env', 'REGISTRY_PASSWORD') }}"
+      when:
+        - lookup('env', 'REGISTRY_USER') | length > 0
+        - lookup('env', 'REGISTRY_PASSWORD') | length > 0
+
+    # ─── Pull latest image ─────────────────────────────────────────────────────
+    - name: Pull Docker image
+      community.docker.docker_image:
+        name:   "{{ docker_registry }}/{{ project_name }}"
+        tag:    "{{ image_tag }}"
+        source: pull
+        force_source: true
+
+    # ─── Run docker-compose up ─────────────────────────────────────────────────
+    - name: Deploy with docker-compose (down → up)
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state:        present
+        pull:         always
+        recreate:     auto
+        remove_orphans: true
+      environment:
+        IMAGE_TAG:        "{{ image_tag }}"
+        DOCKER_REGISTRY:  "{{ docker_registry }}"
+
+    # ─── Health check ──────────────────────────────────────────────────────────
+    - name: Wait for application health check
+      ansible.builtin.uri:
+        url:         "http://localhost:3000/api/health"
+        method:      GET
+        status_code: 200
+        timeout:     10
+      register: health_result
+      retries:  10
+      delay:    10
+      until:    health_result.status == 200
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ On-Premise Deployment Complete
+            Project:     {{ project_name }}
+            Environment: {{ environment }}
+            Image:       {{ docker_registry }}/{{ project_name }}:{{ image_tag }}
+            Host:        {{ inventory_hostname }}
+            Health:      OK

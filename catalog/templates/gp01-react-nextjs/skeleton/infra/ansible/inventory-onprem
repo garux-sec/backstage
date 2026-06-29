@@ -1,0 +1,6 @@
+[onprem]
+${{ values.vmHost }} ansible_user=${{ values.vmUser }} ansible_ssh_private_key_file=~/.ssh/deploy_key
+
+[onprem:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'

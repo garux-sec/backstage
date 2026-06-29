@@ -1,0 +1,38 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: "${{ values.description | default(values.name) }}"
+  annotations:
+    dev.azure.com/host-org: "dev.azure.com/${{ values.organization }}"
+    dev.azure.com/project-repo: "${{ values.project }}/${{ values.name }}"
+    dev.azure.com/project: "${{ values.project }}"
+    dev.azure.com/build-definition: "${{ values.name }}-ci-cd"
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - react
+    - nextjs
+    - typescript
+    - golden-path
+    - gp01
+  links:
+    - url: https://dev.azure.com/${{ values.organization }}/${{ values.project }}/_git/${{ values.name }}
+      title: Repository
+      icon: github
+    - url: https://dev.azure.com/${{ values.organization }}/${{ values.project }}/_build?definitionName=${{ values.name }}-ci-cd
+      title: CI/CD Pipeline
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: web-applications
+  dependsOn:
+    {%- if values.includeDatabase %}
+    - resource:postgresql-${{ values.name }}
+    {%- endif %}
+    {%- if values.includeRedis %}
+    - resource:redis-${{ values.name }}
+    {%- endif %}
+  providesApis:
+    - ${{ values.name }}-api

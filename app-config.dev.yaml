@@ -15,6 +15,9 @@ app:
   title: MP-Backstage
   baseUrl: http://localhost:3000
   signInPage: microsoft
+  scaffolderDefaults:
+    organization: ${AZURE_DEVOPS_ORG}
+    agentPool: ${AZURE_DEVOPS_AGENT_POOL}
 
 catalog:
   locations:

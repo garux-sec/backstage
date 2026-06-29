@@ -23,7 +23,7 @@ terraform {
   backend "azurerm" {
     resource_group_name  = "${{ values.tfStateResourceGroup }}"
     storage_account_name = "${{ values.tfStateStorageAccount }}"
-    container_name       = "tfstate"
+    container_name       = "state"
     key                  = "${{ values.apiName }}.terraform.tfstate"
     use_azuread_auth     = true
   }

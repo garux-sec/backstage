@@ -1,0 +1,113 @@
+---
+# Ansible playbook for GP#01 React/Next.js deployment to Azure App Service
+# Called after Terraform provisions infrastructure
+
+- name: Configure and Deploy Next.js Application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    project_name: "{{ lookup('env', 'PROJECT_NAME') }}"
+    environment: "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
+    resource_group: "{{ project_name }}-{{ environment }}-rg"
+    app_service_name: "{{ project_name }}-{{ environment }}-app"
+    build_artifact_path: "{{ lookup('env', 'BUILD_ARTIFACT_PATH') | default('../../.next') }}"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - project_name | length > 0
+          - environment in ['dev', 'staging', 'prod']
+        fail_msg: "PROJECT_NAME and valid ENVIRONMENT are required"
+
+    - name: Configure App Service settings
+      ansible.builtin.command:
+        cmd: >
+          az webapp config set
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --startup-file "node server.js"
+          --linux-fx-version "NODE|20-lts"
+          --min-tls-version "1.2"
+          --http20-enabled true
+      changed_when: true
+
+    - name: Set App Service app settings
+      ansible.builtin.command:
+        cmd: >
+          az webapp config appsettings set
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --settings
+          WEBSITE_NODE_DEFAULT_VERSION=~20
+          NEXT_TELEMETRY_DISABLED=1
+          PORT=8080
+      changed_when: true
+
+    - name: Configure CORS (non-prod only)
+      ansible.builtin.command:
+        cmd: >
+          az webapp cors add
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --allowed-origins "http://localhost:3000"
+      when: environment != 'prod'
+      changed_when: true
+
+    - name: Enable logging
+      ansible.builtin.command:
+        cmd: >
+          az webapp log config
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --application-logging filesystem
+          --level information
+          --web-server-logging filesystem
+      changed_when: true
+
+    - name: Deploy application artifact
+      ansible.builtin.command:
+        cmd: >
+          az webapp deploy
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --src-path {{ build_artifact_path }}
+          --type zip
+          --async true
+      changed_when: true
+
+    - name: Wait for deployment to complete
+      ansible.builtin.command:
+        cmd: >
+          az webapp show
+          --resource-group {{ resource_group }}
+          --name {{ app_service_name }}
+          --query "state"
+          --output tsv
+      register: app_state
+      until: app_state.stdout == "Running"
+      retries: 10
+      delay: 15
+      changed_when: false
+
+    - name: Health check
+      ansible.builtin.uri:
+        url: "https://{{ app_service_name }}.azurewebsites.net/api/health"
+        method: GET
+        status_code: 200
+        timeout: 30
+      register: health_result
+      retries: 5
+      delay: 10
+      until: health_result.status == 200
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Deployment Complete:
+            App: {{ app_service_name }}
+            URL: https://{{ app_service_name }}.azurewebsites.net
+            Environment: {{ environment }}
+            Health: OK

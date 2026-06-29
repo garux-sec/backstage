@@ -5,3 +5,4 @@ metadata:
 spec:
   targets:
     - ./apim-api-template/template.yaml
+    - ./gp01-react-nextjs/template.yaml

@@ -102,54 +102,7 @@ stages:
           - script: npm run build
             displayName: 'Build Next.js'
 
-          {%- if values.deploymentTarget == 'on-premise-vm' %}
-          # ── On-Premise: Docker build + push to registry ─────────────────────
-          - script: |
-              IMAGE_TAG="$(Build.BuildId)"
-              IMAGE_FULL="$(dockerRegistry)/$(projectName):${IMAGE_TAG}"
-              IMAGE_LATEST="$(dockerRegistry)/$(projectName):latest"
-
-              echo "##vso[task.setvariable variable=IMAGE_TAG;isOutput=true]${IMAGE_TAG}"
-              echo "Building Docker image: ${IMAGE_FULL}"
-
-              docker build \
-                --build-arg NODE_ENV=production \
-                -t "${IMAGE_FULL}" \
-                -t "${IMAGE_LATEST}" \
-                .
-            name: dockerBuild
-            displayName: 'Docker Build'
-
-          {%- if values.registryType == 'acr' %}
-          - task: AzureCLI@2
-            displayName: 'Docker Push to ACR'
-            inputs:
-              azureSubscription: '$(azureServiceConnection)'
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                az acr login --name $(acrName)
-                docker push "$(dockerRegistry)/$(projectName):$(Build.BuildId)"
-                docker push "$(dockerRegistry)/$(projectName):latest"
-                echo "Image pushed to ACR: $(dockerRegistry)/$(projectName):$(Build.BuildId)"
-          {%- else %}
-          - script: |
-              IMAGE_TAG="$(Build.BuildId)"
-              IMAGE_FULL="$(dockerRegistry)/$(projectName):${IMAGE_TAG}"
-              IMAGE_LATEST="$(dockerRegistry)/$(projectName):latest"
-
-              if [ -n "$(REGISTRY_USER)" ] && [ -n "$(REGISTRY_PASSWORD)" ]; then
-                echo "$(REGISTRY_PASSWORD)" | docker login "$(dockerRegistry)" \
-                  -u "$(REGISTRY_USER)" --password-stdin
-              fi
-
-              docker push "${IMAGE_FULL}"
-              docker push "${IMAGE_LATEST}"
-              echo "Image pushed: ${IMAGE_FULL}"
-            displayName: 'Docker Push to Private Registry'
-          {%- endif %}
-
-          {%- else %}
+          {%- if values.deploymentTarget != 'on-premise-vm' %}
           # ── Azure targets: zip artifact ────────────────────────────────────
           - task: ArchiveFiles@2
             inputs:

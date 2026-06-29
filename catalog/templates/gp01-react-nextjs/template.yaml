@@ -51,7 +51,6 @@ spec:
     - title: Architecture Options
       required:
         - bffPattern
-        - deploymentTarget
       properties:
         bffPattern:
           title: Backend-for-Frontend Pattern
@@ -64,36 +63,6 @@ spec:
           enumNames:
             - 'Next.js API Routes (lightweight BFF for simple data aggregation)'
             - 'NestJS 11.x (structured backend for complex business logic)'
-        deploymentTarget:
-          title: Deployment Target
-          type: string
-          description: Deployment option
-          default: azure-app-service
-          enum:
-            - azure-app-service
-            - azure-container-apps
-            - azure-kubernetes
-            - on-premise-vm
-          enumNames:
-            - 'Azure App Service (recommended for most apps)'
-            - 'Azure Container Apps (serverless containers)'
-            - 'Azure Kubernetes Service (AKS - complex orchestration)'
-            - 'On-Premise VM (Docker + Ansible SSH)'
-        includeAuth:
-          title: Include Azure AD Authentication?
-          type: boolean
-          default: true
-          description: OAuth2/OIDC with Azure AD (Entra ID)
-        includeDatabase:
-          title: Include PostgreSQL Database?
-          type: boolean
-          default: true
-          description: PostgreSQL 16.x with connection pooling
-        includeRedis:
-          title: Include Redis Caching?
-          type: boolean
-          default: false
-          description: Azure Cache for Redis
 
     # ─── Step 3: Azure DevOps ─────────────────────────────────────────────────
     - title: Azure DevOps Repository
@@ -113,24 +82,6 @@ spec:
     - title: CI/CD & Infrastructure
       required: []
       properties:
-        azureRegion:
-          title: Azure Region
-          type: string
-          description: Azure deployment region (ใช้สำหรับ Azure targets เท่านั้น)
-          default: southeastasia
-          enum:
-            - southeastasia
-            - eastasia
-            - australiaeast
-          enumNames:
-            - 'Southeast Asia (Singapore)'
-            - 'East Asia (Hong Kong)'
-            - 'Australia East (Sydney)'
-        enableE2E:
-          title: Enable E2E Testing (Playwright)?
-          type: boolean
-          default: true
-          description: Include Playwright E2E test scaffolding
         vmHost:
           title: VM Host / IP (On-Premise only)
           type: string
@@ -173,12 +124,6 @@ spec:
           type: string
           description: "ชื่อ Key Vault ที่จะเก็บ secrets เช่น mp-dev-kv"
           ui:placeholder: 'mp-dev-kv'
-        dbPassword:
-          title: Database Password
-          type: string
-          description: "รหัสผ่าน PostgreSQL (เก็บใน Key Vault อัตโนมัติ)"
-          ui:widget: password
-          default: ''
         registryPassword:
           title: Docker Registry Password (On-Premise only)
           type: string
@@ -205,15 +150,15 @@ spec:
           owner: ${{ parameters.owner }}
           description: ${{ parameters.description }}
           bffPattern: ${{ parameters.bffPattern }}
-          deploymentTarget: ${{ parameters.deploymentTarget }}
-          includeAuth: ${{ parameters.includeAuth }}
-          includeDatabase: ${{ parameters.includeDatabase }}
-          includeRedis: ${{ parameters.includeRedis }}
+          deploymentTarget: on-premise-vm
+          includeAuth: false
+          includeDatabase: false
+          includeRedis: false
           organization: ${{ parameters.organization }}
           project: ${{ parameters.name }}
           agentPool: ${{ parameters.agentPool }}
-          azureRegion: ${{ parameters.azureRegion }}
-          enableE2E: ${{ parameters.enableE2E }}
+          azureRegion: southeastasia
+          enableE2E: false
           vmHost: ${{ parameters.vmHost }}
           vmUser: ${{ parameters.vmUser }}
           dockerRegistry: ${{ parameters.dockerRegistry }}
@@ -244,8 +189,6 @@ spec:
       input:
         keyVaultName: ${{ parameters.keyVaultName }}
         secrets:
-          - name: ${{ parameters.name }}-DB-PASSWORD
-            value: ${{ parameters.dbPassword }}
           - name: ${{ parameters.name }}-REGISTRY-PASSWORD
             value: ${{ parameters.registryPassword }}
 
@@ -262,9 +205,6 @@ spec:
             isSecret: false
           - name: KEY_VAULT_NAME
             value: ${{ parameters.keyVaultName }}
-            isSecret: false
-          - name: DB_PASSWORD_SECRET_NAME
-            value: ${{ parameters.name }}-DB-PASSWORD
             isSecret: false
           - name: REGISTRY_PASSWORD_SECRET_NAME
             value: ${{ parameters.name }}-REGISTRY-PASSWORD

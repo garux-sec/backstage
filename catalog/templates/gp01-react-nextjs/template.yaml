@@ -231,6 +231,17 @@ spec:
         description: ${{ parameters.description }}
         defaultBranch: main
 
+    - id: setup-sonarqube
+      name: Setup SonarQube Service Connection
+      action: azure:service-connection:sonarqube
+      continueOnError: true
+      input:
+        organization: ${{ parameters.organization }}
+        project: ${{ parameters.name }}
+        connectionName: SonarQubeServer
+        sonarQubeUrl: ${SONARQUBE_URL}
+        sonarQubeToken: ${SONARQUBE_TOKEN}
+
     - id: set-keyvault-secrets
       name: Set Secrets in Azure Key Vault
       action: azure:keyvault:set-secret

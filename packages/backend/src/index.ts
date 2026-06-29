@@ -17,6 +17,7 @@ import { createAzureServiceConnectionAuthorizeAction } from './scaffolder/action
 import { createAzurePipelineEnsureAction } from './scaffolder/actions/azurePipelineEnsure';
 import { createAzureVariableGroupEnsureAction } from './scaffolder/actions/azureVariableGroupEnsure';
 import { createAzureKeyVaultSetSecretAction } from './scaffolder/actions/azureKeyVaultSetSecret';
+import { createAzureSonarQubeServiceConnectionAction } from './scaffolder/actions/azureSonarQubeServiceConnection';
 
 const backend = createBackend();
 
@@ -47,6 +48,7 @@ const customScaffolderModule = createBackendModule({
         scaffolder.addActions(createAzurePipelineEnsureAction({ config }));
         scaffolder.addActions(createAzureVariableGroupEnsureAction({ config }));
         scaffolder.addActions(createAzureKeyVaultSetSecretAction({ config }));
+        scaffolder.addActions(createAzureSonarQubeServiceConnectionAction({ config }));
       },
     });
   },

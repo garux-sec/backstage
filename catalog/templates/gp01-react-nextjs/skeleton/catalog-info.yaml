@@ -27,6 +27,7 @@ spec:
   lifecycle: experimental
   owner: ${{ values.owner }}
   system: web-applications
+{%- if values.includeDatabase or values.includeRedis %}
   dependsOn:
     {%- if values.includeDatabase %}
     - resource:postgresql-${{ values.name }}
@@ -34,5 +35,4 @@ spec:
     {%- if values.includeRedis %}
     - resource:redis-${{ values.name }}
     {%- endif %}
-  providesApis:
-    - ${{ values.name }}-api
+{%- endif %}

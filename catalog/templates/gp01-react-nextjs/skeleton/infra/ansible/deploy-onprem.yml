@@ -9,7 +9,7 @@
 
   vars:
     project_name:    "{{ lookup('env', 'PROJECT_NAME') }}"
-    environment:     "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
+    deploy_env:      "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
     image_tag:       "{{ lookup('env', 'IMAGE_TAG') | default('latest') }}"
     docker_registry: "{{ lookup('env', 'DOCKER_REGISTRY') }}"
     app_dir:         "/opt/{{ project_name }}"
@@ -20,7 +20,7 @@
         that:
           - project_name | length > 0
           - docker_registry | length > 0
-          - environment in ['dev', 'staging', 'prod']
+          - deploy_env in ['dev', 'staging', 'prod']
         fail_msg: "PROJECT_NAME, DOCKER_REGISTRY and valid ENVIRONMENT are required"
 
     - name: Ensure app directory exists
@@ -91,7 +91,7 @@
         msg: |
           ✅ On-Premise Deployment Complete
             Project:     {{ project_name }}
-            Environment: {{ environment }}
+            Environment: {{ deploy_env }}
             Image:       {{ docker_registry }}/{{ project_name }}:{{ image_tag }}
             Host:        {{ inventory_hostname }}
             Health:      OK

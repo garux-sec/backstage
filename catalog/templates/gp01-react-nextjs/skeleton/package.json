@@ -1,7 +1,7 @@
 {
   "name": "${{ values.name }}",
   "version": "1.0.0",
-  "description": "${{ values.description }}",
+  "description": "${{ values.description | replace('\n', ' ') | replace('\r', '') | replace('\"', '') }}",
   "private": true,
   "scripts": {
     "dev": "next dev",

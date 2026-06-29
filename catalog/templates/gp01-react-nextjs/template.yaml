@@ -45,10 +45,7 @@ spec:
         description:
           title: Description
           type: string
-          description: Brief description of the application
-          ui:widget: textarea
-          ui:options:
-            rows: 3
+          description: Brief description of the application (single line)
 
     # ─── Step 2: Architecture Options ─────────────────────────────────────────
     - title: Architecture Options

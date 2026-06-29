@@ -57,6 +57,7 @@ services:
 networks:
   app-network:
     driver: bridge
+{%- if values.includeDatabase or values.includeRedis %}
 
 volumes:
   {%- if values.includeDatabase %}
@@ -65,3 +66,4 @@ volumes:
   {%- if values.includeRedis %}
   redis-data:
   {%- endif %}
+{%- endif %}

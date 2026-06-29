@@ -239,8 +239,6 @@ spec:
         organization: ${{ parameters.organization }}
         project: ${{ parameters.name }}
         connectionName: SonarQubeServer
-        sonarQubeUrl: ${SONARQUBE_URL}
-        sonarQubeToken: ${SONARQUBE_TOKEN}
 
     - id: set-keyvault-secrets
       name: Set Secrets in Azure Key Vault

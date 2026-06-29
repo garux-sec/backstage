@@ -10,13 +10,20 @@ export function createAzureSonarQubeServiceConnectionAction(options: { config: C
         organization: zImpl.string().describe('The Azure DevOps Organization'),
         project: zImpl.string().describe('The Azure DevOps Project Name'),
         connectionName: zImpl.string().optional().describe('Service connection name (default: SonarQubeServer)'),
-        sonarQubeUrl: zImpl.string().describe('SonarQube server URL'),
-        sonarQubeToken: zImpl.string().describe('SonarQube authentication token'),
+        sonarQubeUrl: zImpl.string().optional().describe('SonarQube server URL (falls back to SONARQUBE_URL env var or sonarqube.baseUrl config)'),
+        sonarQubeToken: zImpl.string().optional().describe('SonarQube token (falls back to SONARQUBE_TOKEN env var or sonarqube.apiKey config)'),
       }),
     },
     async handler(ctx) {
-      const { organization, project, sonarQubeUrl, sonarQubeToken } = ctx.input;
+      const { organization, project } = ctx.input;
       const connectionName = ctx.input.connectionName || 'SonarQubeServer';
+      const sonarQubeUrl = ctx.input.sonarQubeUrl || process.env.SONARQUBE_URL || options.config.getOptionalString('sonarqube.baseUrl');
+      const sonarQubeToken = ctx.input.sonarQubeToken || process.env.SONARQUBE_TOKEN || options.config.getOptionalString('sonarqube.apiKey');
+
+      if (!sonarQubeUrl || !sonarQubeToken) {
+        ctx.logger.warn('SonarQube URL or Token not configured. Skipping SonarQube service connection setup.');
+        return;
+      }
 
       const token = process.env.AZURE_DEVOPS_TOKEN || options.config.getOptionalString('integrations.azure[0].credentials[0].personalAccessToken');
       if (!token) {

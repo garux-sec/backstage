@@ -95,6 +95,7 @@ export function createAzureVariableGroupEnsureAction(options: { config: Config }
         }
 
         ctx.logger.info(`Variable group "${groupName}" updated.`);
+        await authorizeVariableGroupForAllPipelines(ctx, orgUrl, project, existing.id, headers, groupName);
         ctx.output('groupId',   existing.id);
         ctx.output('groupName', groupName);
         ctx.output('created',   false);
@@ -144,9 +145,40 @@ export function createAzureVariableGroupEnsureAction(options: { config: Config }
 
       const created: any = await createRes.json();
       ctx.logger.info(`Variable group "${groupName}" created (ID: ${created.id}).`);
+      await authorizeVariableGroupForAllPipelines(ctx, orgUrl, project, created.id, headers, groupName);
       ctx.output('groupId',   created.id);
       ctx.output('groupName', groupName);
       ctx.output('created',   true);
     },
   });
+}
+
+async function authorizeVariableGroupForAllPipelines(
+  ctx: any, orgUrl: string, project: string, groupId: number,
+  headers: Record<string, string>, groupName: string,
+) {
+  ctx.logger.info(`Authorizing variable group "${groupName}" for all pipelines...`);
+  try {
+    const response = await fetch(
+      `${orgUrl}/${encodeURIComponent(project)}/_apis/pipelines/pipelinepermissions/variablegroup/${groupId}?api-version=7.1-preview.1`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          allPipelines: { authorized: true, authorizedBy: null, authorizedOn: null },
+          pipelines: null,
+          resource: { id: `${groupId}`, type: 'variablegroup' },
+        }),
+      },
+    );
+
+    if (response.ok) {
+      ctx.logger.info(`Variable group "${groupName}" authorized for all pipelines.`);
+    } else {
+      const warnText = await response.text();
+      ctx.logger.warn(`Could not auto-authorize variable group: ${warnText}`);
+    }
+  } catch (err: any) {
+    ctx.logger.warn(`Could not authorize variable group: ${err.message}`);
+  }
 }

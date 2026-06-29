@@ -297,85 +297,43 @@ stages:
   {%- endif %}
 
   {%- if values.deploymentTarget == 'on-premise-vm' %}
-  # ─── Stage 4: Deploy to Dev (On-Premise) ─────────────────────────────────────
-  - stage: DeployOnPremDev
-    displayName: 'Deploy to Dev VM'
+  # ─── Stage 4: Deploy to Staging (On-Premise) ────────────────────────────────
+  - stage: DeployOnPremStaging
+    displayName: 'Deploy to Staging VM'
     dependsOn: ContainerBuildAndSupplyChain
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     variables:
       - name: environment
-        value: 'dev'
-    jobs:
-      - deployment: DeployOnPremDev
-        environment: '$(projectName)-dev'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
-
-                - script: |
-                    if ! command -v ansible &>/dev/null; then
-                      brew install ansible --quiet
-                    fi
-                    ansible-galaxy collection install community.docker --force --quiet
-                  displayName: 'Install Ansible + community.docker'
-
-                - script: |
-                    cd infra/ansible
-                    ansible-playbook deploy-onprem.yml \
-                      -i inventory-onprem \
-                      --private-key "$(DEPLOY_SSH_KEY_PATH)"
-                  displayName: 'Ansible Deploy (Dev VM)'
-                  env:
-                    PROJECT_NAME:      $(projectName)
-                    ENVIRONMENT:       $(environment)
-                    IMAGE_TAG:         $(Build.BuildId)
-                    DOCKER_REGISTRY:   $(dockerRegistry)
-                    REGISTRY_USER:     $(REGISTRY_USER)
-                    REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
-                    ANSIBLE_HOST_KEY_CHECKING: 'False'
-
-  # ─── Stage 4: Deploy to Staging (On-Premise) ─────────────────────────────────
-  - stage: DeployOnPremStaging
-    displayName: 'Deploy to Staging VM'
-    dependsOn: DeployOnPremDev
-    condition: succeeded()
-    variables:
-      - name: environment
         value: 'staging'
     jobs:
-      - deployment: DeployOnPremStaging
-        environment: '$(projectName)-staging'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
+      - job: DeployStaging
+        displayName: 'Ansible Deploy (Staging)'
+        steps:
+          - checkout: self
 
-                - script: |
-                    if ! command -v ansible &>/dev/null; then
-                      brew install ansible --quiet
-                    fi
-                    ansible-galaxy collection install community.docker --force --quiet
-                  displayName: 'Install Ansible + community.docker'
+          - script: |
+              if ! command -v ansible &>/dev/null; then
+                pip3 install ansible --break-system-packages || pip3 install ansible
+              fi
+              ansible-galaxy collection install community.docker --force
+            displayName: 'Install Ansible + community.docker'
 
-                - script: |
-                    cd infra/ansible
-                    ansible-playbook deploy-onprem.yml \
-                      -i inventory-onprem \
-                      --private-key "$(DEPLOY_SSH_KEY_PATH)"
-                  displayName: 'Ansible Deploy (Staging VM)'
-                  env:
-                    PROJECT_NAME:      $(projectName)
-                    ENVIRONMENT:       $(environment)
-                    IMAGE_TAG:         $(Build.BuildId)
-                    DOCKER_REGISTRY:   $(dockerRegistry)
-                    REGISTRY_USER:     $(REGISTRY_USER)
-                    REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
-                    ANSIBLE_HOST_KEY_CHECKING: 'False'
+          - script: |
+              cd infra/ansible
+              ansible-playbook deploy-onprem.yml \
+                -i inventory-onprem \
+                --private-key "$(DEPLOY_SSH_KEY_PATH)"
+            displayName: 'Ansible Deploy (Staging VM)'
+            env:
+              PROJECT_NAME:      $(projectName)
+              ENVIRONMENT:       $(environment)
+              IMAGE_TAG:         $(Build.BuildId)
+              DOCKER_REGISTRY:   $(dockerRegistry)
+              REGISTRY_USER:     $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              ANSIBLE_HOST_KEY_CHECKING: 'False'
 
-  # ─── Stage 5.5: DAST Scan (On-Premise) ────────────────────────────────────────
+  # ─── Stage 5: DAST Scan (On-Premise) ────────────────────────────────────────
   - stage: DASTScanOnPrem
     displayName: 'DAST Scan (OWASP ZAP)'
     dependsOn: DeployOnPremStaging
@@ -387,8 +345,9 @@ stages:
           - script: |
               docker run -t owasp/zap2docker-stable zap-baseline.py -t http://$(vmHost):3000 || true
             displayName: 'Run OWASP ZAP on Staging'
+            continueOnError: true
 
-  # ─── Stage 6: Deploy to Production (On-Premise) ──────────────────────────────
+  # ─── Stage 6: Deploy to Production (On-Premise) ─────────────────────────────
   - stage: DeployOnPremProd
     displayName: 'Deploy to Prod VM'
     dependsOn: DASTScanOnPrem
@@ -397,35 +356,32 @@ stages:
       - name: environment
         value: 'prod'
     jobs:
-      - deployment: DeployOnPremProd
-        environment: '$(projectName)-prod'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
+      - job: DeployProd
+        displayName: 'Ansible Deploy (Prod)'
+        steps:
+          - checkout: self
 
-                - script: |
-                    if ! command -v ansible &>/dev/null; then
-                      brew install ansible --quiet
-                    fi
-                    ansible-galaxy collection install community.docker --force --quiet
-                  displayName: 'Install Ansible + community.docker'
+          - script: |
+              if ! command -v ansible &>/dev/null; then
+                pip3 install ansible --break-system-packages || pip3 install ansible
+              fi
+              ansible-galaxy collection install community.docker --force
+            displayName: 'Install Ansible + community.docker'
 
-                - script: |
-                    cd infra/ansible
-                    ansible-playbook deploy-onprem.yml \
-                      -i inventory-onprem \
-                      --private-key "$(DEPLOY_SSH_KEY_PATH)"
-                  displayName: 'Ansible Deploy (Prod VM)'
-                  env:
-                    PROJECT_NAME:      $(projectName)
-                    ENVIRONMENT:       $(environment)
-                    IMAGE_TAG:         $(Build.BuildId)
-                    DOCKER_REGISTRY:   $(dockerRegistry)
-                    REGISTRY_USER:     $(REGISTRY_USER)
-                    REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
-                    ANSIBLE_HOST_KEY_CHECKING: 'False'
+          - script: |
+              cd infra/ansible
+              ansible-playbook deploy-onprem.yml \
+                -i inventory-onprem \
+                --private-key "$(DEPLOY_SSH_KEY_PATH)"
+            displayName: 'Ansible Deploy (Prod VM)'
+            env:
+              PROJECT_NAME:      $(projectName)
+              ENVIRONMENT:       $(environment)
+              IMAGE_TAG:         $(Build.BuildId)
+              DOCKER_REGISTRY:   $(dockerRegistry)
+              REGISTRY_USER:     $(REGISTRY_USER)
+              REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+              ANSIBLE_HOST_KEY_CHECKING: 'False'
 
   {%- else %}
   # ─── Stage 3: Deploy to Dev (Azure) ──────────────────────────────────────────

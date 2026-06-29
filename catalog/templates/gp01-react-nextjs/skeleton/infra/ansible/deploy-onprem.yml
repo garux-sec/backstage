@@ -28,6 +28,7 @@
         path: "{{ app_dir }}"
         state: directory
         mode: '0755'
+      become: true
 
   tasks:
     # ─── Copy compose files ────────────────────────────────────────────────────
@@ -36,12 +37,14 @@
         src: "{{ playbook_dir }}/../../docker-compose.yml"
         dest: "{{ app_dir }}/docker-compose.yml"
         mode: '0644'
+      become: true
 
     - name: Copy .env.production if exists
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../.env.production"
         dest: "{{ app_dir }}/.env.production"
         mode: '0600'
+      become: true
       ignore_errors: true
 
     # ─── Docker login to private registry ─────────────────────────────────────
